@@ -11,32 +11,35 @@ import (
 const tableDDLQueryTemplate = `
 select 
   c.column_name, 
-  c.udt_name, 
-  tc.constraint_type, 
+  c.udt_name,    
+  pk.constraint_type,
   c.numeric_precision, 
   c.numeric_scale, 
   c.character_maximum_length
 from information_schema.columns c
-left join information_schema.key_column_usage kcu
-on kcu.table_catalog = c.table_catalog 
-and kcu.table_schema = c.table_schema 
-and kcu.table_name = c.table_name 
-and kcu.column_name = c.column_name 
-left join information_schema.table_constraints tc
-on c.table_catalog = tc.table_catalog 
-  and c.table_schema = tc.table_schema 
-  and c.table_name = tc.table_name 
-  and kcu.constraint_name = tc.constraint_name 
+left join (
+	select 
+	  kcu.table_catalog,
+	  kcu.table_schema,
+	  kcu.table_name,
+	  kcu.column_name,
+	  kcu.constraint_name,
+	  tc.constraint_type
+	from information_schema.key_column_usage kcu
+	left join information_schema.table_constraints tc
+	  on kcu.table_catalog = tc.table_catalog 
+	 and kcu.table_schema = tc.table_schema 
+	 and kcu.table_name = tc.table_name 
+	 and kcu.constraint_name = tc.constraint_name
+	where tc.constraint_type = 'PRIMARY KEY') pk
+  on c.table_catalog = pk.table_catalog
+ and c.table_schema = pk.table_schema
+ and c.table_name = pk.table_name
+ and c.column_name = pk.column_name
 where c.table_catalog = $1
 and c.table_schema = $2
 and c.table_name = $3
 `
-
-// type tableDDLQueryInput struct {
-// 	Database string
-// 	Schema   string
-// 	Table    string
-// }
 
 func dataSourcePostgreSQLDatabaseTable() *schema.Resource {
 	return &schema.Resource{
