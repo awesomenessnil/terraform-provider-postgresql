@@ -15,7 +15,9 @@ select
   pk.constraint_type,
   c.numeric_precision, 
   c.numeric_scale, 
-  c.character_maximum_length
+  c.character_maximum_length,
+  c.datetime_precision,
+  c.is_nullable
 from information_schema.columns c
 left join (
 	select 
@@ -99,6 +101,16 @@ func dataSourcePostgreSQLDatabaseTable() *schema.Resource {
 							Description: "Maximum length precison for varchar type",
 							Optional:    true,
 						},
+						"datetime_precision": {
+							Type:        schema.TypeInt,
+							Description: "Precison for timestamp",
+							Optional:    true,
+						},
+						"is_nullable": {
+							Type:        schema.TypeBool,
+							Description: "True if the column is nullable",
+							Required:    true,
+						},
 					},
 				},
 			},
@@ -136,8 +148,10 @@ func dataSourcePostgreSQLTableRead(db *DBConnection, d *schema.ResourceData) err
 		var numeric_precision sql.NullInt32
 		var numeric_scale sql.NullInt32
 		var character_maximum_length sql.NullInt32
+		var datetime_precision sql.NullInt32
+		var is_nullable_string sql.NullString
 
-		if err = rows.Scan(&column_name, &udt_name, &constraint_type, &numeric_precision, &numeric_scale, &character_maximum_length); err != nil {
+		if err = rows.Scan(&column_name, &udt_name, &constraint_type, &numeric_precision, &numeric_scale, &character_maximum_length, &datetime_precision, &is_nullable_string); err != nil {
 			return fmt.Errorf("could not scan table output for database: %w", err)
 		}
 
@@ -152,6 +166,12 @@ func dataSourcePostgreSQLTableRead(db *DBConnection, d *schema.ResourceData) err
 		result["numeric_precision"] = numeric_precision.Int32
 		result["numeric_scale"] = numeric_scale.Int32
 		result["character_maximum_length"] = character_maximum_length.Int32
+		result["datetime_precision"] = datetime_precision.Int32
+		is_nullable := false
+		if is_nullable_string.String == "YES" {
+			is_nullable = true
+		}
+		result["is_nullable"] = is_nullable
 		tables = append(tables, result)
 	}
 
